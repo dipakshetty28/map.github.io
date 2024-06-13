@@ -48,7 +48,7 @@ function loadLocations() {
 
     request.onsuccess = event => {
         const locations = event.target.result;
-        const coordinates = locations.map(loc => [loc.longitude+1, loc.latitude+1]);
+        const coordinates = locations.map(loc => [loc.longitude, loc.latitude]);
         if (coordinates.length > 0) {
             drawRoute(coordinates);
         }
