@@ -1,27 +1,22 @@
 const map = new maplibregl.Map({
     container: 'map', // container id
     style: 'https://demotiles.maplibre.org/style.json', // style URL
-    center: [-60, 30],
-    zoom: 2
+    center: [-80, 30],
+    zoom: 4
 });
 
-// const geolocateControl = new maplibregl.GeolocateControl({
-//     positionOptions: {
-//         enableHighAccuracy: true
-//     },
-//     trackUserLocation: true
-// });
-
-// map.addControl(geolocateControl);
-
-const request = indexedDB.open('LocationDB', 1);
 let i = 0;
 let j = 0;
+const request = indexedDB.open('LocationDB', 1);
+
 request.onupgradeneeded = event => {
     const db = event.target.result;
     if (!db.objectStoreNames.contains('locations')) {
         const objectStore = db.createObjectStore('locations', { keyPath: 'timestamp' });
         objectStore.createIndex('timestamp', 'timestamp', { unique: false });
+        objectStore.createIndex('lname', 'lname', { unique: false });
+        objectStore.createIndex('type', 'type', { unique: false });
+        objectStore.createIndex('ratings', 'ratings', { unique: false });
     }
 };
 
@@ -38,8 +33,22 @@ request.onerror = event => {
 function saveLocation(latitude, longitude) {
     const transaction = db.transaction(['locations'], 'readwrite');
     const store = transaction.objectStore('locations');
-    const data = { latitude, longitude, timestamp: new Date().getTime(),note:'' };
+    const data = {
+        OBJECTID: getNextObjectId(), 
+        latitude,
+        longitude,
+        timestamp: new Date().getTime(),
+        note: '',
+        lname: '',
+        type: '',
+        ratings: ''
+    };
     store.add(data);
+}
+
+let nextObjectId = 1; // Start from 1, increase as new locations are added
+function getNextObjectId() {
+    return nextObjectId++;
 }
 
 function loadLocations() {
@@ -62,18 +71,20 @@ function loadLocations() {
 }
 
 
-function saveNoteToLocation(timestamp, note) {
+
+function saveNoteToLocation(timestamp, lname, type, ratings, note) {
     const transaction = db.transaction(['locations'], 'readwrite');
     const store = transaction.objectStore('locations');
     const request = store.get(timestamp);
-    console.log('timestamp', timestamp);
+
     request.onsuccess = event => {
         let data = event.target.result;
-        console.log('target', event.target);
-        console.log('data', data);
+        data.lname = lname;
+        data.type = type;
+        data.ratings = ratings;
         data.note = note;
         store.put(data);
-        loadLocations(); 
+        loadLocations(); // Reload locations to update the list display
     };
 
     request.onerror = event => {
@@ -90,33 +101,38 @@ function updateLocationList(locations) {
         const listItem = document.createElement('li');
         listItem.className = 'location-item';
         listItem.innerHTML = `
-            <p>Latitude: ${location.latitude}, Longitude: ${location.longitude}</p>
-            <p>Timestamp: ${new Date(location.timestamp).toLocaleString()}</p>
+            <p>Latitude: ${location.latitude}, Longitude: ${location.longitude}, OBJECTID: ${location.OBJECTID}</p>
+            <input class="name-input" type="text" placeholder="Name" value="${location.lname || ''}" />
+            <input class="type-input" type="text" placeholder="Type" value="${location.type || ''}" />
+            <select class="rating-select">
+                <option value="1" ${location.ratings === '1' ? 'selected' : ''}>1</option>
+                <option value="2" ${location.ratings === '2' ? 'selected' : ''}>2</option>
+                <option value="3" ${location.ratings === '3' ? 'selected' : ''}>3</option>
+                <option value="4" ${location.ratings === '4' ? 'selected' : ''}>4</option>
+                <option value="5" ${location.ratings === '5' ? 'selected' : ''}>5</option>
+            </select>
             <textarea class="note-input" placeholder="Add a note...">${location.note || ''}</textarea>
-            <button class="note-button" data-timestamp="${location.timestamp}">Save Note</button>
+            <button class="save-button" data-timestamp="${location.timestamp}">Save</button>
         `;
         locationList.appendChild(listItem);
     });
 
-    
-    document.querySelectorAll('.note-button').forEach(button => {
+    document.querySelectorAll('.save-button').forEach(button => {
         button.addEventListener('click', event => {
+            const li = event.target.parentElement;
             const timestamp = parseInt(event.target.getAttribute('data-timestamp'), 10);
-            const note = event.target.previousElementSibling.value;
-            saveNoteToLocation(timestamp, note);
+            const lname = li.querySelector('.name-input').value;
+            const type = li.querySelector('.type-input').value;
+            const ratings = li.querySelector('.rating-select').value;
+            const note = li.querySelector('.note-input').value;
+            saveNoteToLocation(timestamp, lname, type, ratings, note);
         });
     });
 }
 
 
 
-// const geofenceCenter = [-97, 30];
-
-// const maxDistance = 500000;
-
-
-
-function showPopup(message,latitude, longitude) {
+function showPopup(message, latitude, longitude) {
     const popup = new maplibregl.Popup({ closeOnClick: false })
         .setLngLat([longitude, latitude])
         .setHTML(`<h3>Alert</h3><p>${message}</p>`)
@@ -124,39 +140,15 @@ function showPopup(message,latitude, longitude) {
 }
 
 
-// const geofenceBuffer = turf.buffer(turf.point(geofenceCenter), maxDistance / 1000, { units: 'kilometers' });
-
-
-// function addGeofenceBorder(buffer) {
-//     if (map.getSource('geofence')) {
-//         map.getSource('geofence').setData(buffer);
-//     } else {
-//         map.addSource('geofence', {
-//             type: 'geojson',
-//             data: buffer
-//         });
-
-//         map.addLayer({
-//             id: 'geofence-border',
-//             type: 'line',
-//             source: 'geofence',
-//             paint: {
-//                 'line-color': '#FF0000',
-//                 'line-width': 2
-//             }
-//         });
-//     }
-// }
-
 
 const polygonCoordinates = [
-    [-96.0, 25.0], 
+    [-96.0, 25.0],
     [-92.5, 28.0],
     [-95.5, 30.0],
     [-97.0, 32.0],
     [-100.0, 31.0],
     [-100.0, 29.0],
-    [-96.0, 25.0] 
+    [-96.0, 25.0]
 ];
 
 const geofencePolygon = turf.polygon([polygonCoordinates]);
@@ -193,10 +185,11 @@ function updateMap(latitude, longitude) {
     if (flag) {
         saveLocation(latitude, longitude);
         loadLocations();
+        map.setCenter([longitude, latitude]);
     }
     else {
         stopTracking();
-        showPopup('You have moved out of the allowed area!',latitude, longitude);
+        showPopup('You have moved out of the allowed area!', latitude, longitude);
     }
 }
 
@@ -247,6 +240,7 @@ function drawRoute(coordinates) {
     }
 }
 
+
 let tracking = false;
 let first = true;
 let intervalId;
@@ -265,6 +259,7 @@ function startTracking() {
                     j += (Math.random() * 3);
                     j -= 1;
                     console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
+
                     updateMap(latitude, longitude);
 
                     if (first) {
@@ -292,10 +287,9 @@ function stopTracking() {
 document.getElementById('startTracking').addEventListener('click', startTracking);
 document.getElementById('stopTracking').addEventListener('click', stopTracking);
 
-// setTimeout(() => {
-//     addGeofenceBorder(geofenceBuffer);
-// },500)
 
-setTimeout(() => {
+
+map.on('load', () => {
     addGeofencePolygon(geofencePolygon);
-},500)
+});
+
