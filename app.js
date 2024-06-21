@@ -46,6 +46,79 @@ function saveLocation(latitude, longitude) {
     store.add(data);
 }
 
+async function getToken(data, latitude, longitude) {
+    const body = {
+        "username": "GISTest_Editor",
+        "password": "GISTest_Editor2024#",
+        "client": "referer",
+        "referer": "localhost:3000",
+        "f": "json"
+    };
+
+    var formBody = [];
+    for (var property in body) {
+        var encodedKey = encodeURIComponent(property);
+        var encodedValue = encodeURIComponent(body[property]);
+        formBody.push(encodedKey + "=" + encodedValue);
+    }
+    formBody = formBody.join("&");
+
+    const tresp = await fetch("https://gistest.twdb.texas.gov/portal/sharing/rest/generateToken", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        body: formBody
+    });
+
+    const tjson = await tresp.json();
+
+    addPoints(tjson.token, data, parseFloat(latitude), parseFloat(longitude));
+}
+
+async function addPoints(token, data, latitude, longitude) {
+    const url = `https://gistest.twdb.texas.gov/server/rest/services/TxGIO_GIT/Dipak_Test_Collection_Rating/FeatureServer/0/addFeatures?f=pjson&token=${token}`;
+
+    // const body = {
+    //     Features: `[{"attributes" : {"Name": "${data.lname}","Type":"${data.type}","Notes": "${data.note}","Rating":"${data.ratings}"},"geometry": {"x": ${latitude}, "y": ${longitude} }}]`
+    // };
+
+    const body = {
+        Features: JSON.stringify([
+            {
+                attributes: {
+                    Name: data.lname,
+                    Type: data.type,
+                    Notes: data.note,
+                    Rating: data.ratings
+                },
+                geometry: {
+                    x: longitude,  
+                    y: latitude    
+                }
+            }
+        ])
+    };
+
+    var formBody = [];
+    for (var property in body) {
+        var encodedKey = encodeURIComponent(property);
+        var encodedValue = encodeURIComponent(body[property]);
+        formBody.push(encodedKey + "=" + encodedValue);
+    }
+    formBody = formBody.join("&");
+
+    const editr = await fetch(url, {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+        },
+        body: formBody
+    });
+
+}
+
+
 let nextObjectId = 1;
 function getNextObjectId() {
     return nextObjectId++;
@@ -75,7 +148,7 @@ function loadLocations() {
 
 
 
-function saveNoteToLocation(timestamp, lname, type, ratings, note) {
+function saveNoteToLocation(timestamp, lname, type, ratings, note, latitude, longitude) {
     const transaction = db.transaction(['locations'], 'readwrite');
     const store = transaction.objectStore('locations');
     const request = store.get(timestamp);
@@ -87,6 +160,7 @@ function saveNoteToLocation(timestamp, lname, type, ratings, note) {
         data.ratings = ratings;
         data.note = note;
         store.put(data);
+        getToken(data, latitude, longitude);
         loadLocations();
     };
 
@@ -95,121 +169,6 @@ function saveNoteToLocation(timestamp, lname, type, ratings, note) {
     };
 }
 
-
-
-
-// function updateLocationList(locations) {
-//     const locationTable = document.getElementById('locationTable');
-//     locationTable.innerHTML = '';
-
-//     const headerRow = document.createElement('tr');
-//     headerRow.innerHTML = `
-//         <th>Select</th>
-//         <th>Latitude</th>
-//         <th>Longitude</th>
-//         <th>OBJECTID</th>
-//         <th>Name</th>
-//         <th>Type</th>
-//         <th>Ratings</th>
-//         <th>Note</th>
-//         <th>Action</th>
-//     `;
-//     locationTable.appendChild(headerRow);
-
-//     locations.forEach(location => {
-//         const row = document.createElement('tr');
-//         row.innerHTML = `
-//             <td><input type="radio" name="locationSelect" value="${location.OBJECTID}"></td>
-//             <td>${location.latitude}</td>
-//             <td>${location.longitude}</td>
-//             <td>${location.OBJECTID}</td>
-//             <td><input type="text" class="editable name" value="${location.lname}"></td>
-//             <td><input type="text" class="editable type" value="${location.type}"></td>
-//             <td>
-//                 <select class="editable ratings">
-//                     <option value="1" ${location.ratings === '1' ? 'selected' : ''}>1</option>
-//                     <option value="2" ${location.ratings === '2' ? 'selected' : ''}>2</option>
-//                     <option value="3" ${location.ratings === '3' ? 'selected' : ''}>3</option>
-//                     <option value="4" ${location.ratings === '4' ? 'selected' : ''}>4</option>
-//                     <option value="5" ${location.ratings === '5' ? 'selected' : ''}>5</option>
-//                 </select>
-//             </td>
-//             <td><input type="text" class="editable note" value="${location.note}"></td>
-//             <td><button class="save-button" onclick="saveLocationDetails(${location.OBJECTID})">Save</button></td>
-//         `;
-//         locationTable.appendChild(row);
-//     });
-// }
-
-
-// function saveLocationDetails(objectId) {
-//     const transaction = db.transaction(['locations'], 'readwrite');
-//     const store = transaction.objectStore('locations');
-//     const request = store.get(objectId);
-
-//     request.onsuccess = event => {
-//         const data = event.target.result;
-//         if (!data) {
-//             console.error('No data found with OBJECTID:', objectId);
-//             return;
-//         }
-
-//         const row = document.querySelector(`input[value="${objectId}"]`).closest('tr');
-//         const name = row.querySelector('.name').value;
-//         const type = row.querySelector('.type').value;
-//         const ratings = row.querySelector('.ratings').value;
-//         const note = row.querySelector('.note').value;
-
-//         data.name = name;
-//         data.type = type;
-//         data.ratings = ratings;
-//         data.note = note;
-
-//         const updateRequest = store.put(data);
-//         updateRequest.onsuccess = () => {
-//             console.log('Data updated successfully for OBJECTID:', objectId);
-//             loadLocations();
-//         };
-//         updateRequest.onerror = error => {
-//             console.error('Failed to update data for OBJECTID:', objectId, error.target.errorCode);
-//         };
-//     };
-
-//     request.onerror = error => {
-//         console.error('IndexedDB error during data retrieval:', error.target.errorCode);
-//     };
-// }
-
-
-
-// function saveLocationDetails(objectId) {
-//     const row = document.querySelector(`input[value="${objectId}"]`).parentNode.parentNode;
-//     const lname = row.querySelector('.name').value;
-//     const type = row.querySelector('.type').value;
-//     const ratings = row.querySelector('.ratings').value;
-//     const note = row.querySelector('.note').value;
-
-//     const transaction = db.transaction(['locations'], 'readwrite');
-//     const store = transaction.objectStore('locations');
-//     const request = store.get(objectId);
-//     console.log(transaction);
-//     console.log(store);
-//     console.log(request);
-
-//     request.onsuccess = event => {
-//         const data = event.target.result;
-//         data.lname = lname;
-//         data.type = type;
-//         data.ratings = ratings;
-//         data.note = note;
-//         store.put(data);
-//         loadLocations();
-//     };
-
-//     request.onerror = event => {
-//         console.error('IndexedDB error:', event.target.errorCode);
-//     };
-// }
 
 
 function updateLocationList(locations) {
@@ -221,9 +180,19 @@ function updateLocationList(locations) {
         listItem.className = 'location-item';
         listItem.innerHTML = `
             <input type="radio" name="location" class="location-radio" data-lat="${location.latitude}" data-lng="${location.longitude}">
-            <p>Latitude: ${location.latitude}, Longitude: ${location.longitude}, OBJECTID: ${location.OBJECTID}</p>
+
+            <label for="latitude">Latitude:</label>
+            <input type="text" class="latitude-input" id="latitude" name="latitude" value="${location.latitude}" readonly><br>
+
+            <label for="longitude">Longitude:</label>
+            <input type="text" class="longitude-input" id="longitude" name="longitude" value="${location.longitude}" readonly><br>
+
+            <label for="objectid">OBJECTID:</label>
+            <input type="text" class="objectid-input" id="objectid" name="objectid" value="${location.OBJECTID}" readonly><br>
+
             <input class="name-input" type="text" placeholder="Name" value="${location.lname || ''}" />
             <input class="type-input" type="text" placeholder="Type" value="${location.type || ''}" />
+
             <select class="rating-select">
                 <option value="0" ${location.ratings === '0' ? 'selected' : 'selected'}>0</option>
                 <option value="1" ${location.ratings === '1' ? 'selected' : ''}>1</option>
@@ -266,49 +235,12 @@ function updateLocationList(locations) {
             const type = li.querySelector('.type-input').value;
             const ratings = li.querySelector('.rating-select').value;
             const note = li.querySelector('.note-input').value;
-            saveNoteToLocation(timestamp, lname, type, ratings, note);
+            const latitude = li.querySelector('.latitude-input').value;
+            const longitude = li.querySelector('.longitude-input').value;
+            saveNoteToLocation(timestamp, lname, type, ratings, note, latitude, longitude);
         });
     });
 }
-
-// function updateLocationList(locations) {
-//     const locationList = document.getElementById('locationList');
-//     locationList.innerHTML = '';
-
-//     locations.forEach(location => {
-//         const listItem = document.createElement('li');
-//         listItem.className = 'location-item';
-//         listItem.innerHTML = `
-//             <p>Latitude: ${location.latitude}, Longitude: ${location.longitude}, OBJECTID: ${location.OBJECTID}</p>
-//             <input class="name-input" type="text" placeholder="Name" value="${location.lname || ''}" />
-//             <input class="type-input" type="text" placeholder="Type" value="${location.type || ''}" />
-//             <select class="rating-select">
-//                 <option value="1" ${location.ratings === '1' ? 'selected' : ''}>1</option>
-//                 <option value="2" ${location.ratings === '2' ? 'selected' : ''}>2</option>
-//                 <option value="3" ${location.ratings === '3' ? 'selected' : ''}>3</option>
-//                 <option value="4" ${location.ratings === '4' ? 'selected' : ''}>4</option>
-//                 <option value="5" ${location.ratings === '5' ? 'selected' : ''}>5</option>
-//             </select>
-//             <textarea class="note-input" placeholder="Add a note...">${location.note || ''}</textarea>
-//             <button class="save-button" data-timestamp="${location.timestamp}">Save</button>
-//         `;
-//         locationList.appendChild(listItem);
-//     });
-
-//     document.querySelectorAll('.save-button').forEach(button => {
-//         button.addEventListener('click', event => {
-//             const li = event.target.parentElement;
-//             const timestamp = parseInt(event.target.getAttribute('data-timestamp'), 10);
-//             const lname = li.querySelector('.name-input').value;
-//             const type = li.querySelector('.type-input').value;
-//             const ratings = li.querySelector('.rating-select').value;
-//             const note = li.querySelector('.note-input').value;
-//             saveNoteToLocation(timestamp, lname, type, ratings, note);
-//         });
-//     });
-// }
-
-
 
 function showPopup(message, latitude, longitude) {
     const popup = new maplibregl.Popup({ closeOnClick: false })
@@ -365,15 +297,15 @@ async function addNeighborhoodPoints() {
         const geojson = await response.json();
 
 
-        map.addSource('uploaded-source', {
+        map.addSource('source', {
             'type': 'geojson',
             'data': geojson
         });
 
         map.addLayer({
-            'id': 'uploaded-polygons',
+            'id': 'polygons',
             'type': 'fill',
-            'source': 'uploaded-source',
+            'source': 'source',
             'paint': {
                 'fill-color': '#888888',
                 'fill-outline-color': 'red',

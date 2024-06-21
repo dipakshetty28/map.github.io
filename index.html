@@ -1,3 +1,93 @@
+<!-- 
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Apply Edits with ArcGIS API for JavaScript</title>
+    <link rel="stylesheet" href="https://js.arcgis.com/4.24/esri/themes/light/main.css">
+    <script src="https://js.arcgis.com/4.24/"></script>
+</head>
+
+<body>
+    <div id="viewDiv" style="height: 100vh;"></div>
+    <script>
+        require([
+            "esri/Map",
+            "esri/views/MapView",
+            "esri/layers/FeatureLayer",
+            "esri/identity/IdentityManager",
+            "esri/identity/Credential"
+        ], function (Map, MapView, FeatureLayer, IdentityManager, Credential) {
+
+
+            // Define the URL for the feature service
+            const featureLayerUrl = 'https://gistest.twdb.texas.gov/server/rest/services/TxGIO_GIT/Dipak_Test_Collection_Rating/FeatureServer/0';
+            // Create a FeatureLayer instance
+            const featureLayer = new FeatureLayer({ url: featureLayerUrl });
+            // Create a map and a view
+            const map = new Map({ basemap: 'streets-navigation-vector', layers: [featureLayer] });
+            const view = new MapView({
+                container: 'viewDiv', map: map, center: [-97.7431, 30.2672], // Longitude, latitude  
+                zoom: 10
+            });
+            // Function to generate a token
+            function generateToken(username, password) {
+                return IdentityManager.generateToken({
+                    server: 'https://gistest.twdb.texas.gov/portal/sharing/rest/generateToken', username: username, password: password
+                }).then(credential => { return credential.token; });
+            }
+            // Function to add points using applyEdits
+            function addPoints(token) {  // Define the points to be added  
+                const adds = [{
+                    attributes: {
+                        Field1: 'Value1',
+                        // Replace with your field names and values        
+                        Field2: 'Value2'
+                    }, geometry: {
+                        type: "point", longitude: -97.7431, // Longitude        
+                        latitude: 30.2672 // Latitude      
+                    }
+                },
+                {
+                    attributes: {
+                        Field1: 'Value3',
+                        Field2: 'Value4'
+                    },
+                    geometry: {
+                        type: "point", longitude: -98.4936,
+                        latitude: 29.4241
+                    }
+                }];
+                // Apply the edits to the feature layer  
+                featureLayer.applyEdits({
+                    addFeatures: adds
+                }, { token: token }).then(response => {
+                    console.log('ApplyEdits Response:', response);
+                }).catch(error => { console.error('Error:', error); });
+            }
+            // Main function to handle the process
+            function main1() {
+                const username = 'GISTest_Editor';
+                // Replace with your username  
+                const password = 'GISTest_Editor2024#';
+                // Replace with your password
+                generateToken(username, password).then(token => {
+                    addPoints(token);
+                }).catch(error => {
+                    console.error('Failed to generate token or apply edits:', error);
+                });
+            }
+            // Run the main function
+            main1();
+        });
+    </script>
+</body>
+
+</html> -->
+
+
+
+
 <!-- <!DOCTYPE html>
 <html>
 
@@ -12,46 +102,55 @@
     <div id="viewDiv"></div>
     <script>
 
-        require(["esri/request", "esri/geometry/Point", "esri/Graphic", "esri/layers/FeatureLayer"], function (esriRequest, Point, Graphic, FeatureLayer) {
+        // Define the URL of the feature service
+        const url = 'https://gistest.twdb.texas.gov/server/rest/services/TxGIO_GIT/Dipak_Test_Collection_Rating/FeatureServer/0/applyEdits';
 
-            var featureServiceUrl = "https://gistest.twdb.texas.gov/server/rest/services/TxGIO_GIT/Dipak_Test_Collection_Rating/FeatureServer/0?token:";
+        // Define the points to be added
+        const adds = [
+            {
+                attributes: {
+                    Field1: 'Value1',  // Replace with your field names and values
+                    Field2: 'Value2'
+                },
+                geometry: {
+                    x: -97.7431,  // Longitude
+                    y: 30.2672    // Latitude
+                }
+            },
+            {
+                attributes: {
+                    Field1: 'Value3',
+                    Field2: 'Value4'
+                },
+                geometry: {
+                    x: -98.4936,
+                    y: 29.4241
+                }
+            }
+        ];
 
-            var point = new Point({ longitude: -90, latitude: 30 });
-
-            var graphic = new Graphic({ geometry: point, attributes: { Name: "New Feature", Type: "Type1", Notes: "This is a test feature", Rating: 5 } });
-
-            var edits = { addFeatures: [graphic] , token: 'l0dMZmGTV7KcabulN9r7PpJeCY_1TEZAWW2e18L0WGTrjo_O0BeoviPo_AOzOsASsdTu12Mrz59fOgG1qjHB0NDawDu60GZRTrT5HZr5WvbqNc0Ni46nmN4F4rXmUBBeRey2yr7kAnwcmJOoyY8_pf5SUpLxAXOVqmbd6vZaUe8IznbGuxwsSiEBEI-oUVY9gaT5nwXRwYM0H-wnNUI8UA..'};
-
-            // edits = new URLSearchParams(edits);     
-
-
-            esriRequest(featureServiceUrl + "/applyEdits",
-                {
-                    method: "post",
-                    responseType: "json",
-                    query: edits,
-                    mode: 'cors',
-                    usePost: true
-                })
-                .then(function (response) {
-
-                    console.log("ApplyEdits response:", response);
-
-                    if (response.data.addResults && response.data.addResults.length > 0) {
-
-                        var result = response.data.addResults[0];
-                        if (result.success) {
-                            console.log("Feature added with ObjectID:", result.objectId);
-                        }
-                        else {
-                            console.error("Failed to add feature:", result.error);
-                        }
-                    }
-                })
-                .catch(function (error) {
-                    console.error("Error applying edits:", error);
-                });
+        // Create the payload for the applyEdits operation
+        const payload = new URLSearchParams({
+            f: 'json',
+            adds: JSON.stringify(adds)
         });
+
+        // Send the POST request
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: payload
+        })
+            .then(response => response.json())
+            .then(data => {
+                // Handle the response from the server
+                console.log(data);
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
 
     </script>
 </body>
