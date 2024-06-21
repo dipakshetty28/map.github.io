@@ -52,3 +52,15 @@
  .highlight {
      background-color: yellow;
  }
+
+ #locationTable input.editable,
+ #locationTable select.editable {
+     width: 100%;
+     box-sizing: border-box;
+ }
+
+ #locationTable th,
+ #locationTable td {
+     padding: 4px 8px;
+     border: 1px solid #ccc;
+ }

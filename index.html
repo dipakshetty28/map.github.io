@@ -14,19 +14,23 @@
 
         require(["esri/request", "esri/geometry/Point", "esri/Graphic", "esri/layers/FeatureLayer"], function (esriRequest, Point, Graphic, FeatureLayer) {
 
-            var featureServiceUrl = "https://gistest.twdb.texas.gov/server/rest/services/TxGIO_GIT/Dipak_Test_Collection_Rating/FeatureServer/0";
+            var featureServiceUrl = "https://gistest.twdb.texas.gov/server/rest/services/TxGIO_GIT/Dipak_Test_Collection_Rating/FeatureServer/0?token:";
 
             var point = new Point({ longitude: -90, latitude: 30 });
 
             var graphic = new Graphic({ geometry: point, attributes: { Name: "New Feature", Type: "Type1", Notes: "This is a test feature", Rating: 5 } });
 
-            var edits = { addFeatures: [graphic] };
+            var edits = { addFeatures: [graphic] , token: 'l0dMZmGTV7KcabulN9r7PpJeCY_1TEZAWW2e18L0WGTrjo_O0BeoviPo_AOzOsASsdTu12Mrz59fOgG1qjHB0NDawDu60GZRTrT5HZr5WvbqNc0Ni46nmN4F4rXmUBBeRey2yr7kAnwcmJOoyY8_pf5SUpLxAXOVqmbd6vZaUe8IznbGuxwsSiEBEI-oUVY9gaT5nwXRwYM0H-wnNUI8UA..'};
+
+            // edits = new URLSearchParams(edits);     
+
 
             esriRequest(featureServiceUrl + "/applyEdits",
                 {
                     method: "post",
                     responseType: "json",
                     query: edits,
+                    mode: 'cors',
                     usePost: true
                 })
                 .then(function (response) {
@@ -66,28 +70,35 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel='stylesheet' href='https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.css' />
     <link rel="stylesheet" href="styles.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src='https://unpkg.com/maplibre-gl@4.3.2/dist/maplibre-gl.js'></script>
- 
+
 </head>
 
 <body>
 
-    
 
+    <div id="rChart" style="display:none; width: 400px; height: 400px;">
+        <button id="closeChart">Hide</button>
+        <canvas id="ratingsChart" style="width: 300px; height: 300px;"></canvas>
+    </div>
     <div id="map">
         <div id="controls">
             <button id="startTracking">Start Tracking</button>
             <button id="stopTracking">Stop Tracking</button>
+            <button id="showChart">Show Ratings Chart</button>
         </div>
     </div>
 
     <div id="locations">
         <h2>Location List</h2>
+        <input type="text" id="searchBar" placeholder="Search by name, type, or rating...">
         <ul id="locationList"></ul>
+        <!-- <table id="locationTable"></table> -->
     </div>
-    
+
     <script src="https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js"></script>
-    <script src="https://unpkg.com/@turf/turf/turf.min.js" ></script>
+    <script src="https://unpkg.com/@turf/turf/turf.min.js"></script>
     <script src="https://js.arcgis.com/4.21/"></script>
     <script src="app.js"></script>
 </body>
