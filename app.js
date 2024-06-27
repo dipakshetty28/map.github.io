@@ -1,7 +1,3 @@
-maplibregl.setRTLTextPlugin(
-    'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.min.js'
-);
-
 const map = new maplibregl.Map({
     container: 'map',
     style:
@@ -95,10 +91,6 @@ async function getToken(data, latitude, longitude) {
 async function addPoints(token, data, latitude, longitude) {
     const url = `https://gistest.twdb.texas.gov/server/rest/services/TxGIO_GIT/Dipak_Test_Collection_Rating/FeatureServer/0/addFeatures?f=pjson&token=${token}`;
 
-    // const body = {
-    //     Features: `[{"attributes" : {"Name": "${data.lname}","Type":"${data.type}","Notes": "${data.note}","Rating":"${data.ratings}"},"geometry": {"x": ${latitude}, "y": ${longitude} }}]`
-    // };
-    // const { x, y } = convertLatLngToWebMercator(latitude, longitude);
 
     const body = {
         Features: JSON.stringify([
@@ -249,21 +241,6 @@ function updateLocationList(locations) {
 
             map.flyTo({ center: [longitude, latitude], zoom: 15 });
 
-            // const el = document.createElement('div');
-            // el.className = 'marker';
-            // el.style.backgroundImage =
-            //     `url(https://img.icons8.com/?size=100&id=37170&format=png&color=000000`;
-            // el.style.backgroundSize = `30px 30px`;
-            // el.style.backgroundRepeat = `no-repeat`;
-            // el.style.width = `30px`;
-            // el.style.height = `30px`;
-
-            // // add marker to map
-            // const newMarker = new maplibregl.Marker({ element: el })
-            //     .setLngLat([longitude, latitude])
-            //     .addTo(map);
-
-            // markers.push(newMarker);
         });
     });
 
@@ -376,13 +353,6 @@ function initLoadLocations() {
                 default:
                     break;
             }
-
-            // const index = customMarker.findIndex(marker => marker.newMarker._lngLat.lng == longitude && marker.newMarker._lngLat.lat == latitude);
-            // if (index !== -1) {
-            //     const cmarker = customMarker[index]
-            //     cmarker.newMarker.remove();
-            //     customMarker.splice(index, 1);
-            // }
 
             if (url) {
 
@@ -877,22 +847,6 @@ map.on('load', () => {
 
     initLoadLocations();
 
-
-    // map.setLayoutProperty('label_country', 'text-field', [
-    //     'format',
-    //     ['get', 'name_en'],
-    //     { 'font-scale': 1.2 },
-    //     '\n',
-    //     {},
-    //     ['get', 'name'],
-    //     {
-    //         'font-scale': 0.8,
-    //         'text-font': [
-    //             'literal',
-    //             ['DIN Offc Pro Italic', 'Arial Unicode MS Regular']
-    //         ]
-    //     }
-    // ]);
 });
 
 map.addControl(
@@ -917,20 +871,6 @@ document.getElementById('searchBar').addEventListener('input', function () {
         console.error('Search error:', error);
     });
 
-    // const locationItems = document.querySelectorAll('.location-item');
-
-    // locationItems.forEach(item => {
-    //     const lname = item.querySelector('.name-input').value.toLowerCase();
-    //     const type = item.querySelector('.type-select').value.toLowerCase();
-    //     const ratings = item.querySelector('.rating-select').value.toLowerCase();
-    //     const note = item.querySelector('.note-input').value.toLowerCase();
-
-    //     if (lname.includes(query) || type.includes(query) || ratings.includes(query) || note.includes(query)) {
-    //         item.style.display = '';
-    //     } else {
-    //         item.style.display = 'none';
-    //     }
-    // });
 });
 
 
