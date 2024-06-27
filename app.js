@@ -1,12 +1,28 @@
+maplibregl.setRTLTextPlugin(
+    'https://unpkg.com/@mapbox/mapbox-gl-rtl-text@0.2.3/mapbox-gl-rtl-text.min.js'
+);
+
 const map = new maplibregl.Map({
     container: 'map',
-    style: 'https://demotiles.maplibre.org/style.json',
-    center: [-80, 30],
-    zoom: 4
+    style:
+        // 'https://api.maptiler.com/maps/basic/style.json?key=get_your_own_OpIi9ZULNHzrESv6T2vL', 
+        // 'https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json',
+        'https://raw.githubusercontent.com/go2garret/maps/main/src/assets/json/openStreetMap.json',
+    // 'https://raw.githubusercontent.com/go2garret/maps/main/src/assets/json/arcgis_hybrid.json',
+
+    center: [-97.69, 30.28],
+    zoom: 9
 });
+
+
 
 let i = 0;
 let j = 0;
+let isChecked = false;
+let firstMarker = [];
+let markers = [];
+let customMarker = [];
+const start = Date.now();
 const request = indexedDB.open('locations', 1);
 
 request.onupgradeneeded = event => {
@@ -82,6 +98,7 @@ async function addPoints(token, data, latitude, longitude) {
     // const body = {
     //     Features: `[{"attributes" : {"Name": "${data.lname}","Type":"${data.type}","Notes": "${data.note}","Rating":"${data.ratings}"},"geometry": {"x": ${latitude}, "y": ${longitude} }}]`
     // };
+    // const { x, y } = convertLatLngToWebMercator(latitude, longitude);
 
     const body = {
         Features: JSON.stringify([
@@ -93,8 +110,11 @@ async function addPoints(token, data, latitude, longitude) {
                     Rating: data.ratings
                 },
                 geometry: {
-                    x: longitude,  
-                    y: latitude    
+                    x: longitude,
+                    y: latitude,
+                    spatialReference: {
+                        wkid: 4326
+                    }
                 }
             }
         ])
@@ -118,6 +138,12 @@ async function addPoints(token, data, latitude, longitude) {
 
 }
 
+function convertLatLngToWebMercator(latitude, longitude) {
+    const RADIUS = 6378137;
+    const x = longitude * RADIUS * Math.PI / 180;
+    const y = Math.log(Math.tan((90 + latitude) * Math.PI / 360)) * RADIUS;
+    return { x, y };
+}
 
 let nextObjectId = 1;
 function getNextObjectId() {
@@ -132,9 +158,11 @@ function loadLocations() {
     console.log(store);
     console.log(request);
 
+    
     request.onsuccess = event => {
         const locations = event.target.result;
-        const coordinates = locations.map(loc => [loc.longitude, loc.latitude]);
+        const currentLocations = locations.filter(loc => loc.timestamp >= start);
+        const coordinates = currentLocations.map(loc => [loc.longitude, loc.latitude]);
         if (coordinates.length > 0) {
             drawRoute(coordinates);
             updateLocationList(locations);
@@ -191,7 +219,12 @@ function updateLocationList(locations) {
             <input type="text" class="objectid-input" id="objectid" name="objectid" value="${location.OBJECTID}" readonly><br>
 
             <input class="name-input" type="text" placeholder="Name" value="${location.lname || ''}" />
-            <input class="type-input" type="text" placeholder="Type" value="${location.type || ''}" />
+
+            <select class="type-select">
+                <option value="" ${location.type === '' ? 'selected' : 'selected'}></option>
+                <option value="Restaraunt" ${location.type === 'Restaraunt' ? 'selected' : ''}>Restaraunt</option>
+                <option value="Monument" ${location.type === 'Monument' ? 'selected' : ''}>Monument</option>
+            </select>
 
             <select class="rating-select">
                 <option value="0" ${location.ratings === '0' ? 'selected' : 'selected'}>0</option>
@@ -207,7 +240,6 @@ function updateLocationList(locations) {
         locationList.appendChild(listItem);
     });
 
-    let markers = [];
     document.querySelectorAll('.location-radio').forEach(radio => {
         radio.addEventListener('click', event => {
             const latitude = parseFloat(event.target.getAttribute('data-lat'));
@@ -215,11 +247,23 @@ function updateLocationList(locations) {
             markers.forEach(marker => marker.remove());
             markers = [];
 
-            map.flyTo({ center: [longitude, latitude], zoom: 6 });
-            const newMarker = new maplibregl.Marker({ color: 'red' })
-                .setLngLat([longitude, latitude])
-                .addTo(map);
-            markers.push(newMarker);
+            map.flyTo({ center: [longitude, latitude], zoom: 15 });
+
+            // const el = document.createElement('div');
+            // el.className = 'marker';
+            // el.style.backgroundImage =
+            //     `url(https://img.icons8.com/?size=100&id=37170&format=png&color=000000`;
+            // el.style.backgroundSize = `30px 30px`;
+            // el.style.backgroundRepeat = `no-repeat`;
+            // el.style.width = `30px`;
+            // el.style.height = `30px`;
+
+            // // add marker to map
+            // const newMarker = new maplibregl.Marker({ element: el })
+            //     .setLngLat([longitude, latitude])
+            //     .addTo(map);
+
+            // markers.push(newMarker);
         });
     });
 
@@ -229,15 +273,63 @@ function updateLocationList(locations) {
             markers.forEach(marker => marker.remove());
             markers = [];
 
+
             const li = event.target.parentElement;
             const timestamp = parseInt(event.target.getAttribute('data-timestamp'), 10);
             const lname = li.querySelector('.name-input').value;
-            const type = li.querySelector('.type-input').value;
+            const type = li.querySelector('.type-select').value;
             const ratings = li.querySelector('.rating-select').value;
             const note = li.querySelector('.note-input').value;
             const latitude = li.querySelector('.latitude-input').value;
             const longitude = li.querySelector('.longitude-input').value;
+
             saveNoteToLocation(timestamp, lname, type, ratings, note, latitude, longitude);
+            let url = '';
+            switch (type) {
+                case "Restaraunt":
+                    url = 'https://img.icons8.com/?size=100&id=qvscHBGB7saA&format=png&color=000000';
+                    break;
+
+                case "Monument":
+                    url = 'https://img.icons8.com/?size=100&id=17621&format=png&color=000000';
+                    break;
+
+                default:
+                    break;
+            }
+
+            const index = customMarker.findIndex(marker => marker.newMarker._lngLat.lng == longitude && marker.newMarker._lngLat.lat == latitude);
+            if (index !== -1) {
+                const cmarker = customMarker[index]
+                cmarker.newMarker.remove();
+                customMarker.splice(index, 1);
+            }
+
+            if (url) {
+
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.style.backgroundImage =
+                    `url(${url})`;
+                el.style.backgroundSize = `30px 30px`;
+                el.style.backgroundRepeat = `no-repeat`;
+                el.style.width = `30px`;
+                el.style.height = `30px`;
+
+                const newMarker = new maplibregl.Marker({ element: el })
+                    .setLngLat([longitude, latitude])
+                    .addTo(map);
+                customMarker.push({ newMarker });
+
+                newMarker.getElement().addEventListener('click', () => {
+                    // showPopup(ratings,latitude,longitude);
+                    new maplibregl.Popup({ closeOnClick: false })
+                        .setLngLat([longitude, latitude])
+                        .setHTML(`<h3>Rating</h3><p>${ratings}</p>`)
+                        .addTo(map);
+                });
+            }
+
         });
     });
 }
@@ -249,7 +341,87 @@ function showPopup(message, latitude, longitude) {
         .addTo(map);
 }
 
+function initLoadLocations() {
+    const transaction = db.transaction(['locations'], 'readwrite');
+    const store = transaction.objectStore('locations');
+    const request = store.getAll();
 
+    request.onsuccess = event => {
+        const locations = event.target.result;
+        const validLocations = locations.filter(loc => loc.type);
+        const invalidLocations = locations.filter(loc => !loc.type);
+
+        invalidLocations.forEach(location => {
+            const deleteRequest = store.delete(location.timestamp);
+            deleteRequest.onsuccess = () => {
+                console.log(`Deleted location with timestamp: ${location.timestamp}`);
+            };
+            deleteRequest.onerror = event => {
+                console.error('IndexedDB deletion error:', event.target.errorCode);
+            };
+        });
+
+        validLocations.forEach(location => {
+
+            let url = '';
+            switch (location.type) {
+                case "Restaraunt":
+                    url = 'https://img.icons8.com/?size=100&id=qvscHBGB7saA&format=png&color=000000';
+                    break;
+
+                case "Monument":
+                    url = 'https://img.icons8.com/?size=100&id=17621&format=png&color=000000';
+                    break;
+
+                default:
+                    break;
+            }
+
+            // const index = customMarker.findIndex(marker => marker.newMarker._lngLat.lng == longitude && marker.newMarker._lngLat.lat == latitude);
+            // if (index !== -1) {
+            //     const cmarker = customMarker[index]
+            //     cmarker.newMarker.remove();
+            //     customMarker.splice(index, 1);
+            // }
+
+            if (url) {
+
+                const el = document.createElement('div');
+                el.className = 'marker';
+                el.style.backgroundImage =
+                    `url(${url})`;
+                el.style.backgroundSize = `30px 30px`;
+                el.style.backgroundRepeat = `no-repeat`;
+                el.style.width = `30px`;
+                el.style.height = `30px`;
+
+                const newMarker = new maplibregl.Marker({ element: el })
+                    .setLngLat([location.longitude, location.latitude])
+                    .addTo(map);
+                customMarker.push({ newMarker });
+
+                newMarker.getElement().addEventListener('click', () => {
+                    // showPopup(ratings,latitude,longitude);
+                    new maplibregl.Popup({ closeOnClick: false })
+                        .setLngLat([location.longitude, location.latitude])
+                        .setHTML(`<h3>Rating</h3><p>${location.ratings}</p>`)
+                        .addTo(map);
+                });
+            }
+
+        });
+
+        const coordinates = validLocations.map(loc => [loc.longitude, loc.latitude]);
+        if (coordinates.length > 0) {
+            //drawPoint(coordinates);
+            updateLocationList(validLocations);
+        }
+    };
+
+    request.onerror = event => {
+        console.error('IndexedDB error:', event.target.errorCode);
+    };
+}
 
 const polygonCoordinates = [
     [-96.0, 25.0],
@@ -293,7 +465,7 @@ function isPointInGeofence(latitude, longitude) {
 
 async function addNeighborhoodPoints() {
     try {
-        const response = await fetch('https://data.texas.gov/resource/m3yf-ffwm.geojson');
+        const response = await fetch('https://data.austintexas.gov/resource/a7ap-j2yt.geojson');
         const geojson = await response.json();
 
 
@@ -309,10 +481,50 @@ async function addNeighborhoodPoints() {
             'paint': {
                 'fill-color': '#888888',
                 'fill-outline-color': 'red',
-                'fill-opacity': 0.4
+                'fill-opacity': 0.5
             },
 
             'filter': ['==', '$type', 'Polygon']
+        });
+
+        const popup = new maplibregl.Popup({
+            closeButton: false,
+            closeOnClick: false
+        });
+
+        map.on('mouseover', 'polygons', (e) => {
+
+            map.getCanvas().style.cursor = 'pointer';
+
+            let coordinates = e.lngLat;
+
+            const description = e.features[0].properties.neighname;
+
+            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
+
+            popup.setLngLat(coordinates).setHTML(description).addTo(map);
+        });
+
+        map.on('click', 'polygons', (e) => {
+
+            map.getCanvas().style.cursor = 'pointer';
+
+            let coordinates = e.lngLat;
+
+            const description = e.features[0].properties.neighname;
+
+            while (Math.abs(e.lngLat.lng - coordinates[0]) > 180) {
+                coordinates[0] += e.lngLat.lng > coordinates[0] ? 360 : -360;
+            }
+
+            popup.setLngLat(coordinates).setHTML(description).addTo(map);
+        });
+
+        map.on('mouseleave', 'polygons', () => {
+            map.getCanvas().style.cursor = '';
+            popup.remove();
         });
 
     } catch (error) {
@@ -326,12 +538,110 @@ function updateMap(latitude, longitude) {
     if (flag) {
         saveLocation(latitude, longitude);
         loadLocations();
-        map.setCenter([longitude, latitude]);
+        // map.setCenter([longitude, latitude]);
+        map.flyTo({ center: [longitude, latitude], zoom: 15 });
     }
     else {
         stopTracking();
         showPopup('You have moved out of the allowed area!', latitude, longitude);
     }
+}
+
+
+function searchLocations(query) {
+    return new Promise((resolve, reject) => {
+        const transaction = db.transaction(['locations'], 'readonly');
+        const store = transaction.objectStore('locations');
+        const indexName = store.index('lname'); 
+        const results = [];
+
+        indexName.openCursor().onsuccess = event => {
+            const cursor = event.target.result;
+            if (cursor) {
+                const value = cursor.value;
+                if (value.lname.toLowerCase().includes(query.toLowerCase()) ||
+                    value.type.toLowerCase().includes(query.toLowerCase()) ||
+                    value.ratings.toString().includes(query.toLowerCase()) ||
+                    value.note.toLowerCase().includes(query.toLowerCase())) {
+                    results.push(value);
+                }
+                cursor.continue();
+            } else {
+                resolve(results);
+            }
+        };
+
+        indexName.openCursor().onerror = event => {
+            reject(event.target.errorCode);
+        };
+    });
+}
+
+function attachEventListenersToListItems() {
+    let markers = [];
+
+    document.querySelectorAll('.location-radio').forEach(radio => {
+        radio.addEventListener('click', event => {
+            const latitude = parseFloat(event.target.getAttribute('data-lat'));
+            const longitude = parseFloat(event.target.getAttribute('data-lng'));
+            markers.forEach(marker => marker.remove());
+            markers = [];
+            map.flyTo({ center: [longitude, latitude], zoom: 6 });
+            const newMarker = new maplibregl.Marker({ color: 'red' })
+                .setLngLat([longitude, latitude])
+                .addTo(map);
+            markers.push(newMarker);
+        });
+    });
+
+    document.querySelectorAll('.save-button').forEach(button => {
+        button.addEventListener('click', event => {
+            const li = event.target.parentElement;
+            const timestamp = parseInt(event.target.getAttribute('data-timestamp'), 10);
+            const lname = li.querySelector('.name-input').value;
+            const type = li.querySelector('.type-select').value;
+            const ratings = li.querySelector('.rating-select').value;
+            const note = li.querySelector('.note-input').value;
+            const latitude = parseFloat(li.querySelector('.latitude-input').value);
+            const longitude = parseFloat(li.querySelector('.longitude-input').value);
+            saveNoteToLocation(timestamp, lname, type, ratings, note, latitude, longitude);
+        });
+    });
+}
+
+
+function updateLocationListFromSearch(results) {
+    const locationList = document.getElementById('locationList');
+    locationList.innerHTML = '';
+
+    results.forEach(location => {
+        const listItem = document.createElement('li');
+        listItem.className = 'location-item';
+        listItem.innerHTML = `
+            <input type="radio" name="location" class="location-radio" data-lat="${location.latitude}" data-lng="${location.longitude}">
+            <label for="latitude">Latitude:</label>
+            <input type="text" class="latitude-input" id="latitude" name="latitude" value="${location.latitude}" readonly><br>
+            <label for="longitude">Longitude:</label>
+            <input type="text" class="longitude-input" id="longitude" name="longitude" value="${location.longitude}" readonly><br>
+            <label for="objectid">OBJECTID:</label>
+            <input type="text" class="objectid-input" id="objectid" name="objectid" value="${location.OBJECTID}" readonly><br>
+            <input class="name-input" type="text" placeholder="Name" value="${location.lname || ''}" />
+            <input class="type-input" type="text" placeholder="Type" value="${location.type || ''}" />
+            <select class="rating-select">
+                <option value="0" ${location.ratings === '0' ? 'selected' : ''}>0</option>
+                <option value="1" ${location.ratings === '1' ? 'selected' : ''}>1</option>
+                <option value="2" ${location.ratings === '2' ? 'selected' : ''}>2</option>
+                <option value="3" ${location.ratings === '3' ? 'selected' : ''}>3</option>
+                <option value="4" ${location.ratings === '4' ? 'selected' : ''}>4</option>
+                <option value="5" ${location.ratings === '5' ? 'selected' : ''}>5</option>
+            </select>
+            <textarea class="note-input" placeholder="Add a note...">${location.note || ''}</textarea>
+            <button class="save-button" data-timestamp="${location.timestamp}">Save</button>
+        `;
+        locationList.appendChild(listItem);
+    });
+
+    attachEventListenersToListItems();
 }
 
 function drawRoute(coordinates) {
@@ -369,20 +679,65 @@ function drawRoute(coordinates) {
             }
         });
 
+
         map.addLayer({
-            id: 'route-poimts',
+            id: 'route-points',
             type: 'circle',
             source: 'route',
             paint: {
                 'circle-radius': 6,
                 'circle-color': '#B42222'
             }
+
         });
+
+    }
+}
+
+
+function drawPoint(coordinates) {
+    if (map.getSource('routeP')) {
+        map.getSource('routeP').setData({
+            type: 'Feature',
+            geometry: {
+                type: 'LineString',
+                coordinates: coordinates
+            }
+        });
+    } else {
+        map.addSource('routeP', {
+            type: 'geojson',
+            data: {
+                type: 'Feature',
+                geometry: {
+                    type: 'LineString',
+                    coordinates: coordinates
+                }
+            }
+        });
+
+        map.addLayer({
+            id: 'routeP-points',
+            type: 'circle',
+            source: 'routeP',
+            paint: {
+                'circle-radius': 6,
+                'circle-color': '#B42222'
+            }
+
+        });
+
     }
 }
 
 document.getElementById('startTracking').addEventListener('click', startTracking);
 document.getElementById('stopTracking').addEventListener('click', stopTracking);
+document.getElementById('stopTracking').addEventListener('click', () => {
+
+});
+document.getElementById('locCheck').addEventListener('click', () => {
+    isChecked = document.getElementById("locCheck").checked;
+});
 document.getElementById('showChart').addEventListener('click', () => {
     showRatingsChart();
 });
@@ -403,19 +758,24 @@ function startTracking() {
                     let { latitude, longitude } = position.coords;
                     latitude += i
                     longitude += j
-                    i += (Math.random() * 2);
-                    i -= 1;
-                    j += (Math.random() * 3);
-                    j -= 1;
+                    i += (Math.random() * 0.02);
+                    i -= 0.01;
+                    j += (Math.random() * 0.03);
+                    j -= 0.01;
                     console.log(`Latitude: ${latitude}, Longitude: ${longitude}`);
 
                     updateMap(latitude, longitude);
 
                     if (first) {
-                        new maplibregl.Marker()
+                        const fMarker = new maplibregl.Marker()
                             .setLngLat([longitude, latitude])
                             .addTo(map);
                         first = false;
+                        firstMarker.push(fMarker);
+                    }
+                    else {
+                        firstMarker.forEach(marker => marker.remove());
+                        firstMarker = [];
                     }
                 });
             }
@@ -490,27 +850,87 @@ function closeRatingsChart() {
     document.getElementById('rChart').style.display = 'none';
 }
 
+
+map.on('click', (e) => {
+    if (isChecked) {
+        if (first) {
+            const fMarker = new maplibregl.Marker()
+                .setLngLat([e.lngLat.lng, e.lngLat.lat])
+                .addTo(map);
+            first = false;
+            firstMarker.push(fMarker);
+        }
+        else {
+            firstMarker.forEach(marker => marker.remove());
+            firstMarker = [];
+        }
+        updateMap(e.lngLat.lat, e.lngLat.lng)
+    }
+});
+
 map.on('load', () => {
+
+    document.getElementById("locCheck").checked = false
+
     addNeighborhoodPoints();
     addGeofencePolygon(geofencePolygon);
+
+    initLoadLocations();
+
+
+    // map.setLayoutProperty('label_country', 'text-field', [
+    //     'format',
+    //     ['get', 'name_en'],
+    //     { 'font-scale': 1.2 },
+    //     '\n',
+    //     {},
+    //     ['get', 'name'],
+    //     {
+    //         'font-scale': 0.8,
+    //         'text-font': [
+    //             'literal',
+    //             ['DIN Offc Pro Italic', 'Arial Unicode MS Regular']
+    //         ]
+    //     }
+    // ]);
 });
+
+map.addControl(
+    new maplibregl.GeolocateControl({
+        positionOptions: {
+            enableHighAccuracy: true
+        },
+        trackUserLocation: true
+    })
+);
+
+map.addControl(
+    new maplibregl.NavigationControl()
+);
 
 document.getElementById('searchBar').addEventListener('input', function () {
     const query = this.value.toLowerCase();
-    const locationItems = document.querySelectorAll('.location-item');
 
-    locationItems.forEach(item => {
-        const lname = item.querySelector('.name-input').value.toLowerCase();
-        const type = item.querySelector('.type-input').value.toLowerCase();
-        const ratings = item.querySelector('.rating-select').value.toLowerCase();
-        const note = item.querySelector('.note-input').value.toLowerCase();
-
-        if (lname.includes(query) || type.includes(query) || ratings.includes(query) || note.includes(query)) {
-            item.style.display = '';
-        } else {
-            item.style.display = 'none';
-        }
+    searchLocations(query).then(results => {
+        updateLocationListFromSearch(results);
+    }).catch(error => {
+        console.error('Search error:', error);
     });
+
+    // const locationItems = document.querySelectorAll('.location-item');
+
+    // locationItems.forEach(item => {
+    //     const lname = item.querySelector('.name-input').value.toLowerCase();
+    //     const type = item.querySelector('.type-select').value.toLowerCase();
+    //     const ratings = item.querySelector('.rating-select').value.toLowerCase();
+    //     const note = item.querySelector('.note-input').value.toLowerCase();
+
+    //     if (lname.includes(query) || type.includes(query) || ratings.includes(query) || note.includes(query)) {
+    //         item.style.display = '';
+    //     } else {
+    //         item.style.display = 'none';
+    //     }
+    // });
 });
 
 
