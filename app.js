@@ -150,7 +150,7 @@ function loadLocations() {
     console.log(store);
     console.log(request);
 
-    
+
     request.onsuccess = event => {
         const locations = event.target.result;
         const currentLocations = locations.filter(loc => loc.timestamp >= start);
@@ -522,7 +522,7 @@ function searchLocations(query) {
     return new Promise((resolve, reject) => {
         const transaction = db.transaction(['locations'], 'readonly');
         const store = transaction.objectStore('locations');
-        const indexName = store.index('lname'); 
+        const indexName = store.index('lname');
         const results = [];
 
         indexName.openCursor().onsuccess = event => {
@@ -754,14 +754,12 @@ function startTracking() {
     }
 }
 
-
 function stopTracking() {
     if (tracking) {
         tracking = false;
         clearInterval(intervalId);
     }
 }
-
 
 let myChart;
 function showRatingsChart() {
